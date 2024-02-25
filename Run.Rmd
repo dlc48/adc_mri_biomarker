@@ -1,0 +1,1036 @@
+---
+title: "ADC MRI Biomarker" 
+author: "D.-L. Couturier / D. Honess / D. McIntyre"
+date: '`r format(Sys.time(), "Last modified: %d %b %Y")`'
+output:
+  html_document:
+    theme: lumen 
+    highlight: tango
+    code_folding: show    
+    toc: true           
+    toc_depth: 4       
+    toc_float: true     
+    fig_width: 7
+    fig_height: 14
+    css: input/html/styles.css    
+    df_print: paged
+    number_sections: true
+    
+---
+
+<!--- rmarkdown::render(.p(.cruk$path,"5412/rmd/IMI.Rmd")) --->
+<!--- setwd(.p(.cruk$path,"5412/rmd/")) --->
+
+<img src="input/html/logo.png" style="position:absolute;top:0px;right:0px;" width="300" />
+
+
+```{r setup, include=FALSE}
+rm(list=ls())
+
+# 
+if(exists(".id")){
+    setwd(.p(.cruk$path,"5412/rmd/2-shared/"))
+}
+
+
+
+
+# paths
+path.data    = "input/data/"
+path.r       = "input/source/"
+path.figures = "output/figures/"
+path.tables  = "output/tables/"
+path.rdata   = "output/rdata/"
+
+
+# source dot functions
+source(paste0(path.r,"dotfun.r"))
+
+# library
+library(gamlss)
+
+```
+
+This code allows to reproduce the main Figures and Tables of the manuscript *MRI biomarker ADC better predicts tumor cellularity than necrosis in a multi-center multi-vendor study of eleven rodent tumor models* of Honess et al (2024, submitted).
+
+
+```{r message = FALSE}
+sessionInfo()
+```
+
+&nbsp;
+
+# Importation
+
+The code available in this Section imports the pre-processed and defines the following R objects:
+
+* *id.section*: data frame providing information (colums) related to each section (rows),
+* *id.rodent*: data frame providing information (colums) related to each rodent (rows),
+* *id.centre*: data frame providing information (colums) on each centre (rows),
+* *id.tumour*: data frame providing information (colums) on each tumour (rows),
+* *id.outcome*: data frame providing information (colums) on each outcome of interest (rows),
+* *id.predictor* (and *id.predictor2*): data frames providing information (colums) on each predictor of interest (rows),
+
+
+```{r message = FALSE, warning = FALSE, echo = TRUE}
+# list of objects
+.idf(dir(path.data),"csv")
+
+# import objects
+for(cw in 1:n.csv){# cw=1
+    id  = gsub(".csv","",id.csv$id[cw])
+    tmp = read.csv(paste0(path.data,id.csv$id[cw]))[,-1]
+    rownames(tmp) = tmp$id
+    assign(id,tmp,envir=.GlobalEnv)
+    assign(paste0("n",substr(id,3,nchar(id))),nrow(tmp),envir=.GlobalEnv)    
+    }
+
+# amend import of factors
+id.section$centre = factor(id.section$centre,levels=id.centre$id)
+id.section$tumour = factor(id.section$tumour,levels=id.tumour$id)
+id.section$group  = factor(id.section$group,levels=id.group$id)
+
+```
+
+&nbsp;
+
+# Table 1
+
+The following code allows to reproduce the gross and net numbers of sections and rodent per centre and tumour type displayed in **Table 1**
+
+## Number of sections
+
+The following table shows the gross number of sections per tumour type (rows) and centre (columns)
+
+```{r message = FALSE, warning = FALSE, echo = TRUE}
+# gross number of sections
+tb1 = table(id.section$tumour,id.section$centre)
+tb1
+```
+    
+The following table shows the net number of sections per tumour type (rows) and centre (columns)
+
+```{r message = FALSE, warning = FALSE, echo = TRUE}
+# net number of sections
+tb2 = table(id.section$tumour[!id.section$missing],
+            id.section$centre[!id.section$missing])
+tb2            
+```
+
+According to the two last Tables, the gross and net numbers of sections respectively are `r sum(tb1)` (untreated group = `r sum(tb1[,id.centre$training.set])`; treated group = `r sum(tb1[,id.centre$test.set])`) and  `r sum(tb2)` (untreated group = `r sum(tb2[,id.centre$training.set])`; treated group = `r sum(tb2[,id.centre$test.set])`).  
+
+The difference between the gross and net number of sections is due to 
+
+* A: non-matching histology/ADC slices,
+* B: too high a proportion (> 5%) of unphysical ADC values (> ADC of pure water),
+* C: missing ADC (no values for a section or a mouse),
+* D: missing (n=1) or dubious (n=1) SHASH parameter estimates,
+* E: missing value for at least one primary outcome.
+
+The following table reports, for each missing section (rows), the section id, tumour type, centre and reason for absence. 
+
+```{r message = FALSE, warning = FALSE, echo = TRUE}
+temp0 = id.section[id.section$missing,
+                  c("pos","id","centre","tumour","missing.reason")]
+temp0$pos = 1:nrow(temp0)
+temp1 = table(id.section$missing.reason)
+temp0
+```
+
+Therefore, over a total of `r n.section` sections, there are `r sum(id.section$missing)` sections with missing information: `r temp1["A"]` due to non-matching histology/ADC slices (A), `r temp1["B"]` due to too large ADC values (B), `r temp1["C"]` due to missing ADC (C), `r temp1["D"]` due to issues when estimating the SHASH parameters (D), and finally `r temp1["A+E"]` due to at least one missing value in the primary outcomes and non-matching slices (A+E).
+
+&nbsp;
+
+## Number of rodents
+
+The following Table shows the gross number of rodents per tumour type (rows) and centre (columns)
+
+```{r message = FALSE, warning = FALSE, echo = TRUE}
+# gross number of section (random selection among set with matching adc/histo)
+posw = unlist(sapply(split(id.section,id.section$rodent),function(x){
+              x$pos[order(runif(length(x$pos)))][1]
+              }))
+tb1 = table(id.section$tumour[posw],
+            id.section$centre[posw])
+tb1            
+```
+
+and, finally, the following Table shows the net number of rodents per tumour type (rows) and centre (columns)
+
+
+```{r message = FALSE, warning = FALSE, echo = TRUE}
+# net number of rodents (random selection among set with matching adc/histo)
+posw = unlist(sapply(split(id.section,id.section$rodent),function(x){
+              x$pos[!x$missing][order(runif(sum(!x$missing)))][1]
+              }))
+tb2 = table(id.section$tumour[posw],
+            id.section$centre[posw])
+tb2            
+```
+      
+The last two Tables show that the gross and net numbers of rodents respectively are `r sum(tb1)` (untreated group = `r sum(tb1[,id.centre$training.set])`; treated group = `r sum(tb1[,id.centre$test.set])`) and  `r sum(tb2)` (untreated group = `r sum(tb2[,id.centre$training.set])`; treated group = `r sum(tb2[,id.centre$test.set])`).    
+
+&nbsp;
+
+## Number of sections per rodent
+
+The following Table shows the number of (non-missing) observations per rodent.
+
+```{r message = FALSE, warning = FALSE, echo = TRUE}
+tb = table(table(.ac(id.section$rodent[!id.section$missing])))
+names(tb) = .p(names(tb)," obs.")
+tb
+```
+
+`r .an(tb[1])` rodents delivered one observation. These data are independent. The remaining `r sum(tb)-.an(tb[1])` rodents delivered 2 or more observations. The corresponding `r sum(!id.section$missing)-.an(tb[1])` (i.e., `r round((sum(!id.section$missing)-.an(tb[1]))/sum(!id.section$missing),2)*100`%) are therefore not independent.
+
+
+&nbsp;
+
+# Analysis of the untreated group
+
+&nbsp;
+
+## Figure 2
+
+
+```{r message = FALSE, warning = FALSE, echo = TRUE, fig.height = 7, fig.width = 12, fig.align = "center"}
+# select data
+dataw = id.section[id.section$training.set&
+                   !apply(is.na(id.section[,id.outcome$id[1:2]]),1,any),]
+
+pdf(.p(path.figures,"F2.pdf"),width=9,height=4)
+layout(matrix(1:3,ncol=3),width=c(1,1,1/2),height=1)
+par(mar=c(3,3,.1,.25),oma=c(3,3,0,0)) 
+#par(mfrow=c(1,2),bg="white",mar=c(2.1,4,1,0),oma=c(4,5.5,2,1)) 
+xlimw = range(c(dataw$total_cellularity,dataw$total_cellularity2),na.rm=TRUE)
+#
+plot(dataw$total_cellularity,dataw$pc_necrosis,
+     xlim=xlimw,
+     col=id.tumour$col[.an(dataw$tumour)],
+     pch=id.centre$pch[.an(dataw$centre)],
+     cex=id.centre$cex[.an(dataw$centre)],
+     axes=FALSE,xlab="",ylab="",main=""
+     )
+axis(2,las=2)
+axis(2,at=43,"% Necrosis",tick=FALSE,padj=-3.5,cex.axis=1.5)
+    #axis(2,at=43,"%",tick=FALSE,las=2,hadj=5,cex.axis=1.5)
+    #axis(2,at=37,"Necrosis",tick=FALSE,las=2,hadj=1.5,cex.axis=1.5)
+axis(1)
+axis(1,at=mean(xlimw),expression(paste("Cellularity: Total area (Cells/",mm^2,")")),tick=FALSE,padj=2.5,cex.axis=1.5)
+box()
+#
+plot(dataw$total_cellularity2,dataw$pc_necrosis,
+     xlim=xlimw,
+     col=id.tumour$col[.an(dataw$tumour)],
+     pch=id.centre$pch[.an(dataw$centre)],
+     cex=id.centre$cex[.an(dataw$centre)],
+     axes=FALSE,xlab="",ylab="",main=""
+     )
+axis(2,las=2)
+axis(1)
+axis(1,at=mean(xlimw),expression(paste("Cellularity: Viable area (Cells/",mm^2,")")),tick=FALSE,padj=2.5,cex.axis=1.5)
+box()    
+# legend
+.ep()
+legend("top",col=id.tumour$col,
+       ncol=1,legend=id.tumour$name,lty=1,lwd=4,box.lwd=NA,
+       title.col="black",title="Tumour types:",cex=1)
+posw = id.centre$training.set[id.centre$order]       
+legend("bottom",pch=id.centre$pch[id.centre$order][posw],
+       pt.cex=id.centre$cex[id.centre$order][posw],cex=1,
+       ncol=1,legend=id.centre$name[id.centre$order][posw],box.lwd=NA,
+       title.col="black",title="Centres:")
+dev.off()
+```
+
+
+
+&nbsp;
+
+## Figure S2
+
+```{r message = FALSE, warning = FALSE, echo = TRUE, fig.height = 20, fig.width = 20, fig.align = "center"}
+dataw = id.section[id.section$training.set&!id.section$missing,]
+
+pdf(.p(path.figures,"FS2.pdf"),width=12,height=12)
+dataw = id.section[id.section$training.set&!id.section$missing,]
+id.predictor$name3 = c("Mean","Median","Stand.\nDeviation","Skewness","Kurtosis",
+                       .p("Cut-off",c(" 1"," 2"," 3")),
+                       "SHASH\nMu","SHASH\nSigma","SHASH\nNu","SHASH\nTau")
+par(mfrow=c(1,1),bg="white")      
+pairs(dataw[,id.predictor$id],
+      col=id.tumour$col[.an(dataw$tumour)],
+         pch=id.centre$pch[.an(dataw$centre)],
+         cex=id.centre$cex[.an(dataw$centre)],
+         labels=id.predictor$name3,cex.labels=1.5)
+dev.off()
+
+pdf(.p(path.figures,"FS2-legend.pdf"),width=12,height=2)
+par(mfrow=c(1,1),bg="white",mar=c(0,0,0,0))
+plot(1,1,pch="",xlab="",ylab="",main="",axes=FALSE)
+legend("top",col=id.tumour$col,
+       ncol=n.tumour/2,legend=id.tumour$name,lty=1,lwd=4,box.lwd=NA,title="Tumours:",
+       title.col="black",cex=1.25)
+posw = id.centre$training.set[id.centre$order]       
+legend("bottom",pch=id.centre$pch[id.centre$order][posw],
+       pt.cex=id.centre$cex[id.centre$order][posw],cex=1.25,
+       ncol=sum(posw),legend=id.centre$name[id.centre$order][posw],box.lwd=NA,
+       title.col="black",title="Centres:")
+dev.off()
+
+```
+
+&nbsp;
+
+## Figure 3
+
+
+```{r message = FALSE, warning = FALSE, echo = TRUE, fig.height = 7, fig.width = 12, fig.align = "center"}
+    
+pdf(.p(path.figures,"F3.pdf"),width=210/22,height=297/22)
+maxw = rbind(cbind(rep(1:n.outcome,each=2),matrix(4:33,ncol=5,byrow=TRUE)),34)
+layout(maxw,width=c(1/4,rep(1,5)),height=rep(c(1,.6),c(6,1)))
+
+# rownames
+par(mar=c(3,0,.5,0))
+for(ow in 1:n.outcome){# ow=1
+    .ep()
+    text(.5,.5,gsub("\n"," ",id.outcome$name[ow]),srt=90,cex=2.5)
+    #abline(v=1,lwd=2)
+}
+
+par(mar=c(3.5,3,0.1,0.1)) 
+#par(mfrow=c(1,2),bg="white",mar=c(2.1,4,1,0),oma=c(4,5.5,2,1)) 
+for(ow in 1:n.outcome){# ow=1
+    # list of predictor of interest
+    id.predictor2  = id.predictor[is.na(match(id.predictor$id,id.outcome$cutoff[-ow])),]
+    n.predictor2 = nrow(id.predictor2)
+    # dataset of interest
+    dataw = id.section[id.section$training.set&!id.section$missing,]
+    for(pw in 1:n.predictor2){# pw=1
+        plot(dataw[,id.predictor2$id[pw]],dataw[,id.outcome$id[ow]],
+             col=id.tumour$col[.an(dataw$tumour)],
+             pch=id.centre$pch[.an(dataw$centre)],
+             cex=id.centre$cex[.an(dataw$centre)],
+             axes=FALSE,xlab="",ylab="",main=""
+             )     
+        axis(2,las=2,cex.axis=.5)
+        #if(pw==1|pw==6){
+        #    axis(2,at=mean(range(dataw[,id.outcome$id[ow]])),
+        #         gsub("\n"," ",id.outcome$name[ow]),
+        #         tick=FALSE,cex.axis=1.5,padj=-5)
+        #    }
+        axis(1,cex.axis=.65,padj=-2)
+        titlew = gsub("ADC ","",gsub("ADC\n","",id.predictor2$name[pw]))
+        if(!grepl("\n",titlew)){titlew=.p(titlew,"\n")}
+        if(grepl("Cut-off",titlew)){titlew="Cut-off\n"}
+        axis(1,at=mean(range(id.section[,id.predictor2$id[pw]],na.rm=TRUE)),
+             gsub("\n"," ",titlew),tick=FALSE,padj=.75,cex.axis=1.25,font=2)
+        box()
+        }# end pw
+    }# end ow
+
+# legend
+par(mar=c(0,0,0,0)) 
+.ep()
+legend("top",col=id.tumour$col,
+       ncol=n.tumour/2,legend=id.tumour$name,lty=1,lwd=4,box.lwd=NA,
+       title.col="black",title="Tumour types:",cex=1.25)
+posw = id.centre$training.set[id.centre$order]       
+legend("bottom",pch=id.centre$pch[id.centre$order][posw],
+       pt.cex=id.centre$cex[id.centre$order][posw],cex=1.25,
+       ncol=sum(id.centre$training.set),
+       legend=id.centre$name[id.centre$order][posw],box.lwd=NA,
+       title.col="black",title="Centres:")
+dev.off()
+    
+    
+    
+    
+```
+
+
+&nbsp;
+
+## Figure 4A
+
+Here, we 
+
+* randomly select one section per rodent 
+* create a thousand 'random' predictors (i.e., predictors unrelated to the outcomes of interest)
+* model the 3 outcomes of interest as a function of each predictor separately by means of linear models for sections of the untreated group
+* 
+
+
+```{r message = FALSE, warning = FALSE, echo = TRUE}
+#######################################################################
+# prepare
+
+# select available data of the untreated group 
+dataw     = id.section[id.section$training.set&!id.section$missing,]
+n.dataw   = nrow(dataw)
+dataw$pos = 1:n.dataw
+
+# randomly select one section per rodent (seed set to the first author university phone extension)
+set.seed(69694)
+posw    = sapply(split(dataw$pos,.ac(dataw$rodent)),
+                 function(x)x[order(runif(length(x)))][1])
+dataw   = dataw[posw,]
+n.dataw = nrow(dataw)
+
+# create random predictors
+fakew   = matrix(rnorm(1000*n.dataw),nrow=n.dataw)
+colnames(fakew) = .p("Random",1:1000)
+.idf(c(id.predictor$id,colnames(fakew)),"predictor2")
+
+# adjust levels
+dataw$centre = droplevels(dataw$centre)
+dataw$tumour = droplevels(dataw$tumour)
+dataw$rodent = factor(dataw$rodent)
+n.dataw      = nrow(dataw)
+dataw$pos    = 1:n.dataw
+dataw        = cbind(dataw,fakew)
+
+# rescale pc_necrosis
+dataw$pc_necrosis = dataw$pc_necrosis/100
+
+# family
+n.family  = 1
+id.family = data.frame(pos=1:n.family,id=c("NO"),
+                           stringsAsFactors=FALSE)
+
+# models
+n.model  = n.family*n.predictor2*n.outcome
+id.model = .nf(data.frame(pos=1:n.model,id=1:n.model,
+                      outcome = rep(id.outcome$id,each=n.predictor2*n.family),
+                      family  = rep(rep(id.family$id,each=n.predictor2),n.outcome),
+                      predictor = rep(id.predictor2$id,n.family*n.outcome),
+                      gR2=NA,GAIC=NA))
+                      
+#######################################################################
+# fit
+
+if(is.na(match("figure4A",dir(path.rdata)))){
+    source(paste0(path.r,"figure4A.r"))
+}else{
+    load(.p(path.rdata,"figure4A"))
+}
+
+# gR-squared and p-values
+mx.pval.op2 = matrix((id.model$LRT),
+                    ncol=n.predictor2,nrow=n.outcome,
+                    byrow=TRUE,
+                    dimnames=list(gsub("\n"," ",id.outcome$name),id.predictor2$id))
+mx.pvalBH.op2 = t(apply(mx.pval.op2,1,p.adjust,method="BH"))
+
+#######################################################################
+# plot
+
+
+pdf(.p(path.figures,"F4A.pdf"),width=210/22,height=297/22/3.5)
+
+maxw = matrix(1:4,ncol=4,byrow=TRUE)
+layout(maxw,width=c(1/4,rep(1,3)),height=1)
+
+# rownames
+par(mar=c(7,0,0,1),oma=c(0,0,0,0))
+    .ep()
+    text(.5,.5,"Untreated group",srt=90,cex=2.5)
+
+
+par(mar=c(7,3,0,2))#,oma=c(0,4,0,1)) 
+mx.pvalBonf.po = NULL 
+for(ow in 1:n.outcome){# ow=1 
+
+    #
+    id.predictor3     = id.predictor[is.na(match(id.predictor$id,id.outcome$cutoff[-ow])),]
+    n.predictor3      = nrow(id.predictor3)
+    #
+    id.modelw = split(id.model,id.model$outcome)[[ow]]
+    orderw    = order(id.modelw$gR2,decreasing=TRUE)
+    id.modelw = id.modelw[orderw,]
+    pvalw     = mx.pval.op2[ow,orderw]
+    rownames(id.modelw) = id.modelw$predictor
+    id.predictor3$gR2  = id.modelw[id.predictor3$id,"gR2"]  
+    id.predictor3$pval = p.adjust(id.modelw[id.predictor3$id,"LRT"],method="bonferroni") 
+    mx.pvalBonf.po = cbind(mx.pvalBonf.po,id.predictor3$pval)
+    id.predictor3 = id.predictor3[order(id.predictor3$gR2,decreasing=TRUE),]
+    #
+    ylimw = c(0,0.4)    
+    plot(1,1,pch="",xlim=c(1,n.predictor3)+c(-.5,.5),ylim=ylimw,
+         xlab = "",ylab="R-squared",
+         axes=FALSE,main="")
+    # random
+    colw = .p(.cruk$col[3],20)
+    gR2_random = id.modelw[grepl("Random",id.modelw$predictor),"gR2"]
+    rect(0,0,n.predictor3+1,quantile(gR2_random,prob=1),col=colw,border=NA)
+    rect(0,0,n.predictor3+1,quantile(gR2_random,prob=.99),col=colw,border=NA)
+    rect(0,0,n.predictor3+1,quantile(gR2_random,prob=.95),col=colw,border=NA)
+    rect(0,0,n.predictor3+1,quantile(gR2_random,prob=.5),col=colw,border=NA)
+    axis(4,at=quantile(gR2_random,prob=c(1,.99,.95,.5)),
+         tick=FALSE,las=2,.p(c(100,99,95,50),"%"),
+         col.axis=.cruk$col[3],cex.axis=1,hadj=.5)
+    # axes
+    axis(1,c(1:n.predictor3),id.predictor3[,"name2"],cex.axis=1,las=2,pos=0)
+    axis(1,at=n.predictor3/2,id.outcome$name[ow],tick=FALSE,padj=2.5,cex.axis=1.25,font=2)
+    axis(2,las=2,cex.axis=1)
+    axis(2,c(min(ylimw),max(ylimw)),tick=TRUE,labels=c("",""),lwd.ticks=NA)
+    axis(1,c(-1000,1e+6),pos=min(ylimw))
+    if(ow==1){axis(2,at=0.2,"R-squared",tick=FALSE,padj=-2.5,cex.axis=1.25)}    
+    abline(h=seq(0.15,0.5,0.05),col=gray(.9))
+    
+    # 
+    lines(id.predictor3$gR2,col=.cruk$col[1])
+    points(id.predictor3$gR2,col=.cruk$col[1])
+    #
+    for(pw in 1:n.predictor){
+        colw = rgb(55,56,149, maxColorValue = 255)
+        text(pw,id.predictor3$gR2[pw]+.02,labels=.sig(id.predictor3$pval[pw]),srt=90,col=colw,cex=2)
+        }
+    }
+dev.off()    
+```
+
+&nbsp;
+
+## Table S2
+
+```{r message = FALSE, warning = FALSE, echo = TRUE}
+# B
+rownames(mx.pvalBonf.po) = id.predictor[is.na(match(id.predictor$id,id.outcome$cutoff[-ow])),"id"]
+colnames(mx.pvalBonf.po) = id.outcome$id
+as.data.frame(apply(mx.pvalBonf.po,2,.pval))
+```
+
+&nbsp;
+
+## Figure S3A
+
+Here, we perform a 5-fold Monte-Carlo cross-validation 
+
+* to estimate the R-squared more reliably,
+* to use all available observations.
+
+B=500 times, a sample of independent observations is drawn and randomly split in K=5 groups of equal size (n=19). For each group, the R-squared and RMSE related to each predictive model (ADC summary statistics and random predictors) fit will be defined given the estimates obtained when fitting a model on the joint observations of other groups. 
+
+
+```{r message = FALSE, warning = FALSE, echo = TRUE}
+#######################################################################
+# prepare:
+
+# net sample
+dataw     = id.section[id.section$training.set&!id.section$missing,]
+n.dataw   = nrow(dataw)
+dataw$pos = 1:n.dataw
+
+# randomly select one section per rodent
+fakew   = matrix(rnorm(1000*n.dataw),nrow=n.dataw)
+colnames(fakew) = .p("Random",1:1000)
+#
+dataw$centre = droplevels(dataw$centre)
+dataw$tumour = droplevels(dataw$tumour)
+dataw$rodent = factor(dataw$rodent)
+dataw$pos    = 1:n.dataw
+dataw        = cbind(dataw,fakew)
+# rescale pc_necrosis
+dataw$pc_necrosis = dataw$pc_necrosis/100
+
+# predictor2
+.idf(c(id.predictor$id,colnames(fakew)),"predictor2")
+
+# family
+n.family  = 1
+id.family = data.frame(pos=1:n.family,id=c("NO"),stringsAsFactors=FALSE)
+
+# models
+n.model  = n.family*n.predictor2*n.outcome
+id.model = .nf(data.frame(pos=1:n.model,id=1:n.model,
+                      outcome = rep(id.outcome$id,each=n.predictor2*n.family),
+                      family  = rep(rep(id.family$id,each=n.predictor2),n.outcome),
+                      predictor = rep(id.predictor2$id,n.family*n.outcome),
+                      gR2=NA,GAIC=NA))
+
+
+#######################################################################
+# fit:
+
+# fit
+if(is.na(match("figureS3A",dir(path.rdata)))){
+    source(paste0(path.r,"figureS3A.r"))
+}else{
+    load(.p(path.rdata,"figureS3A"))
+}
+
+#######################################################################
+# results:
+
+mx.crit.mc = apply(ar.crit.mkcb,c(1,3),mean)
+
+id.model   = cbind(id.model[,c("pos","id","outcome","family","predictor")],mx.crit.mc)
+
+    
+#######################################################################
+# plot: 
+
+pdf(.p(path.figures,"FS3A.pdf"),width=210/22,height=297/22/3.5)
+
+maxw = matrix(1:4,ncol=4,byrow=TRUE)
+layout(maxw,width=c(1/4,rep(1,3)),height=1)
+
+# rownames
+par(mar=c(7,0,0,1),oma=c(0,0,0,0))
+    .ep()
+    text(.5,.5,"Untreated group",srt=90,cex=2.5)
+
+
+par(mar=c(7,3,0,2))#,oma=c(0,4,0,1)) 
+mx.pvalBonf.po = NULL 
+for(ow in 1:n.outcome){# ow=1 
+
+    #
+    id.predictor3     = id.predictor[is.na(match(id.predictor$id,id.outcome$cutoff[-ow])),]
+    n.predictor3      = nrow(id.predictor3)
+    #
+    id.modelw = split(id.model,id.model$outcome)[[ow]]
+    orderw    = order(id.modelw$R2,decreasing=TRUE)
+    id.modelw = id.modelw[orderw,]
+    rownames(id.modelw) = id.modelw$predictor
+    id.predictor3$R2  = id.modelw[id.predictor3$id,"R2"]  
+    id.predictor3 = id.predictor3[order(id.predictor3$R2,decreasing=TRUE),]
+    #
+    ylimw = c(-.1,0.4)    
+    plot(1,1,pch="",xlim=c(1,n.predictor3)+c(-.5,.5),ylim=ylimw,
+         xlab = "",ylab="R-squared",
+         axes=FALSE,main="")
+    # random
+    colw = .p(.cruk$col[3],20)
+    gR2_random = id.modelw[grepl("Random",id.modelw$predictor),"R2"]
+    rect(0,min(ylimw),n.predictor3+1,quantile(gR2_random,prob=1),col=colw,border=NA)
+    rect(0,min(ylimw),n.predictor3+1,quantile(gR2_random,prob=.99),col=colw,border=NA)
+    rect(0,min(ylimw),n.predictor3+1,quantile(gR2_random,prob=.95),col=colw,border=NA)
+    rect(0,min(ylimw),n.predictor3+1,quantile(gR2_random,prob=.5),col=colw,border=NA)
+    axis(4,at=quantile(gR2_random,prob=c(1,.99,.95,.5)),
+         tick=FALSE,las=2,.p(c(100,99,95,50),"%"),
+         col.axis=.cruk$col[3],cex.axis=1,hadj=.5)
+    # axes
+    axis(1,c(1:n.predictor3),id.predictor3[,"name2"],cex.axis=1,las=2,pos=min(ylimw))
+    axis(1,at=n.predictor3/2,id.outcome$name[ow],tick=FALSE,padj=2.5,cex.axis=1.25,font=2)
+    axis(2,las=2,cex.axis=1)
+    axis(2,c(min(ylimw),max(ylimw)),tick=TRUE,labels=c("",""),lwd.ticks=NA)
+    axis(1,c(-1000,1e+6),pos=min(ylimw))
+    if(ow==1){axis(2,at=mean(ylimw),"R-squared",tick=FALSE,padj=-2.5,cex.axis=1.25)}    
+    abline(h=seq(0.05,0.5,0.05),col=gray(.9))
+    
+    # 
+    lines(id.predictor3$R2,col=.cruk$col[1])
+    points(id.predictor3$R2,col=.cruk$col[1])
+    }
+dev.off()    
+    
+```
+
+&nbsp;
+
+# Analysis of the treated group
+
+&nbsp;
+
+## Figure 5
+
+
+```{r message = FALSE, warning = FALSE, echo = TRUE, fig.height = 12, fig.width = 8.5, fig.align = "center"}
+#######################################################################
+# selection best predictor per outcome
+
+# id outcome
+id.outcome$predictor      = c("SHASH.sigma","adc.mean","adc.mean")
+id.outcome$predictor.name = c("SHASH Sigma","ADC mean","ADC mean")
+id.outcome$outcome.name   = c("Necrosis","Cellularity - Total",
+                              "Cellularity - Viable")
+ 
+#######################################################################
+# plot
+
+pdf(.p(path.figures,"F5.pdf"),width=210/22*2/3,height=297/22*2/3)
+maxw = rbind(matrix(c(1:4,5,7,9,11,6,8,10,12),ncol=3),c(13,14,14))
+layout(maxw,width=c(1/3,rep(1,2)),height=c(1/4,rep(1,3),1/2))
+
+# rownames
+par(mar=c(0,0,0,0))
+.ep()
+par(mar=c(3,0,.5,0))
+for(ow in 1:n.outcome){# ow=1
+    .ep()
+    text(.5,.5,gsub("[:]","",id.outcome$name[ow]),srt=90,cex=2.5)
+    #abline(v=1,lwd=2)
+}
+
+# colnames
+par(mar=c(0,3.25,0,0))
+for(ow in 1:2){# ow=1
+    .ep()
+    text(.5,.5,c("Untreated","Treated")[ow],cex=2.5)
+    #abline(v=1,lwd=2)
+}
+
+# 
+par(mar=c(3.5,3.25,1,1)) 
+for(ow in 1:n.outcome){# ow=1
+    # prepare
+    id.ow = id.outcome$id[ow]
+    id.pw = id.outcome$predictor[ow]
+    #
+    pos0  = !id.section$missing
+    y0    = id.section[pos0,id.ow]
+    x0    = id.section[pos0,id.pw]
+    col0  = id.tumour[id.section[pos0,"tumour"],"col2"]
+    pch0  = id.centre[id.section[pos0,"centre"],"pch"]
+    cex0  = id.centre[id.section[pos0,"centre"],"cex"]
+    #
+    pos1  = id.section$training.set&!id.section$missing
+    y1    = id.section[pos1,id.ow]
+    x1    = id.section[pos1,id.pw]
+    col1  = id.tumour[id.section[pos1,"tumour"],"col2"]
+    pch1  = id.centre[id.section[pos1,"centre"],"pch"]
+    cex1  = id.centre[id.section[pos1,"centre"],"cex"]
+    #
+    #
+    pos2  = !id.section$training.set&!id.section$missing
+    y2    = id.section[pos2,id.ow]
+    x2    = id.section[pos2,id.pw]
+    col2  = id.tumour[id.section[pos2,"tumour"],"col2"]
+    pch2  = id.centre[id.section[pos2,"centre"],"pch"]
+    cex2  = id.centre[id.section[pos2,"centre"],"cex"]
+    
+    # limits
+    ylim0 = range(c(y0,y1))
+    ylim1 = c(ylim0[1],ylim0[2]+.5*(ylim0[2]-ylim0[1]))
+    xlim0 = range(c(x0,x1))
+    xlim1 = c(xlim0[1],xlim0[2]+.5*(xlim0[2]-xlim0[1]))    
+    # untreated group
+    plot(x1,y1,xlim=xlim0,ylim=ylim0,
+         col=col1,pch=pch1,cex=cex1,
+         xlab="",cex.lab=1,
+         ylab="",
+         main="",
+         axes=FALSE,cex.axis=.9)
+    box()     
+    axis(1)
+    axis(1,at=mean(xlim0),id.outcome$predictor.name[ow],padj=2,tick=FALSE)
+    axis(2,las=2)
+    # treated group
+    plot(x2,y2,xlim=xlim0,ylim=ylim0,
+         col=col2,pch=pch2,cex=cex2,
+         xlab="",cex.lab=1,
+         ylab="",
+         axes=FALSE,cex.axis=.9) 
+    box()  
+    axis(1)
+    axis(1,at=mean(xlim0),id.outcome$predictor.name[ow],padj=2,tick=FALSE)
+    axis(2,las=2)    
+    }  
+
+# legend
+par(mar=c(0,0,0,0)) 
+.ep()
+.ep()
+legend("top",col=id.tumour$col,
+       ncol=n.tumour/2,legend=id.tumour$name,lty=1,lwd=4,box.lwd=NA,
+       title.col="black",title="Tumour types:",cex=1)
+legend("bottom",pch=id.centre$pch[id.centre$order],#[posw],
+       pt.cex=id.centre$cex[id.centre$order],cex=1,
+       ncol=n.centre/2,legend=id.centre$name[id.centre$order],box.lwd=NA,
+       title.col="black",title="Centres:")
+dev.off()
+          
+```
+
+&nbsp;
+
+
+# Analysis of the full group
+
+&nbsp;
+
+## Figure 4B
+
+As above for Figure 4B now jointly for the untreated and treated groups, we 
+
+* randomly select one section per rodent 
+* create a thousand 'random' predictors (i.e., predictors unrelated to the outcomes of interest)
+* model the 3 outcomes of interest as a function of each predictor separately by means of linear models for sections of the untreated group
+* 
+
+
+```{r message = FALSE, warning = FALSE, echo = TRUE,fig.height = 7, fig.width = 12, fig.align = "center"}
+#######################################################################
+# prepare
+
+# net sample
+dataw     = id.section[!id.section$missing,]
+n.dataw   = nrow(dataw)
+dataw$pos = 1:n.dataw
+
+# randomly select one section per rodent in the untreated group and add rodents of the treated group 
+set.seed(69694)# DH phone extension
+pos1 = sapply(split(dataw$pos[dataw$training.set],.ac(dataw$rodent[dataw$training.set])),
+                 function(x)x[order(runif(length(x)))][1])
+pos2 = sapply(split(dataw$pos[dataw$test.set],.ac(dataw$rodent[dataw$test.set])),
+                 function(x)x[order(runif(length(x)))][1])
+posw    = c(pos1,pos2)
+dataw   = dataw[posw,]
+n.dataw = nrow(dataw)
+
+#
+fakew   = matrix(rnorm(1000*n.dataw),nrow=n.dataw)
+colnames(fakew) = .p("Random",1:1000)
+#
+dataw$centre = droplevels(dataw$centre)
+dataw$tumour = droplevels(dataw$tumour)
+dataw$rodent = factor(dataw$rodent)
+n.dataw      = nrow(dataw)
+dataw$pos    = 1:n.dataw
+dataw        = cbind(dataw,fakew)
+#
+.idf(c(id.predictor$id,colnames(fakew)),"predictor2")
+
+# rescale pc_necrosis
+dataw$pc_necrosis = dataw$pc_necrosis/100
+
+# family
+n.family  = 1
+id.family = .nf(data.frame(pos=1:n.family,id=c("NO"),
+                           stringsAsFactors=FALSE))
+
+# models
+n.model  = n.family*n.predictor2*n.outcome
+id.model = .nf(data.frame(pos=1:n.model,id=1:n.model,
+                      outcome = rep(id.outcome$id,each=n.predictor2*n.family),
+                      family  = rep(rep(id.family$id,each=n.predictor2),n.outcome),
+                      predictor = rep(id.predictor2$id,n.family*n.outcome),
+                      gR2=NA,GAIC=NA))
+                      
+#######################################################################
+# fit
+
+if(is.na(match("figure4B",dir(path.rdata)))){
+    source(paste0(path.r,"figure4B.r"))
+}else{
+    load(.p(path.rdata,"figure4B"))
+}
+
+# gR-squared and p-values
+mx.pval.op2 = matrix((id.model$LRT),
+                    ncol=n.predictor2,nrow=n.outcome,
+                    byrow=TRUE,
+                    dimnames=list(gsub("\n"," ",id.outcome$name),id.predictor2$id))
+mx.pvalBH.op2 = t(apply(mx.pval.op2,1,p.adjust,method="BH"))
+
+
+#######################################################################
+# plot
+
+pdf(.p(path.figures,"F4B.pdf"),width=210/22,height=297/22/3.5)
+
+maxw = matrix(1:4,ncol=4,byrow=TRUE)
+layout(maxw,width=c(1/4,rep(1,3)),height=1)
+
+# rownames
+par(mar=c(7,0,0,1),oma=c(0,0,0,0))
+    .ep()
+    text(.5,.5,"Full group",srt=90,cex=2.5)
+
+
+par(mar=c(7,3,0,2))#,oma=c(0,4,0,1)) 
+mx.pvalBonf.po = NULL 
+for(ow in 1:n.outcome){# ow=1 
+
+    #
+    id.predictor3     = id.predictor[is.na(match(id.predictor$id,id.outcome$cutoff[-ow])),]
+    n.predictor3      = nrow(id.predictor3)
+    #
+    id.modelw = split(id.model,id.model$outcome)[[ow]]
+    orderw    = order(id.modelw$gR2,decreasing=TRUE)
+    id.modelw = id.modelw[orderw,]
+    pvalw     = mx.pval.op2[ow,orderw]
+    rownames(id.modelw) = id.modelw$predictor
+    id.predictor3$gR2  = id.modelw[id.predictor3$id,"gR2"]  
+    id.predictor3$pval = p.adjust(id.modelw[id.predictor3$id,"LRT"],method="bonferroni") 
+    mx.pvalBonf.po = cbind(mx.pvalBonf.po,id.predictor3$pval)
+    id.predictor3 = id.predictor3[order(id.predictor3$gR2,decreasing=TRUE),]
+    #
+    ylimw = c(0,0.4)    
+    plot(1,1,pch="",xlim=c(1,n.predictor3)+c(-.5,.5),ylim=ylimw,
+         xlab = "",ylab="R-squared",
+         axes=FALSE,main="")
+    # random
+    colw = .p(.cruk$col[3],20)
+    gR2_random = id.modelw[grepl("Random",id.modelw$predictor),"gR2"]
+    rect(0,0,n.predictor3+1,quantile(gR2_random,prob=1),col=colw,border=NA)
+    rect(0,0,n.predictor3+1,quantile(gR2_random,prob=.99),col=colw,border=NA)
+    rect(0,0,n.predictor3+1,quantile(gR2_random,prob=.95),col=colw,border=NA)
+    rect(0,0,n.predictor3+1,quantile(gR2_random,prob=.5),col=colw,border=NA)
+    axis(4,at=quantile(gR2_random,prob=c(1,.99,.95,.5)),
+         tick=FALSE,las=2,.p(c(100,99,95,50),"%"),
+         col.axis=.cruk$col[3],cex.axis=1,hadj=.5)
+    # axes
+    axis(1,c(1:n.predictor3),id.predictor3[,"name2"],cex.axis=1,las=2,pos=0)
+    axis(1,at=n.predictor3/2,id.outcome$name[ow],tick=FALSE,padj=2.5,cex.axis=1.25,font=2)
+    axis(2,las=2,cex.axis=1)
+    axis(2,c(min(ylimw),max(ylimw)),tick=TRUE,labels=c("",""),lwd.ticks=NA)
+    axis(1,c(-1000,1e+6),pos=min(ylimw))
+    if(ow==1){axis(2,at=0.2,"R-squared",tick=FALSE,padj=-2.5,cex.axis=1.25)}    
+    abline(h=seq(0.15,0.5,0.05),col=gray(.9))
+    
+    # 
+    lines(id.predictor3$gR2,col=.cruk$col[1])
+    points(id.predictor3$gR2,col=.cruk$col[1])
+    #
+    for(pw in 1:n.predictor){
+        colw = rgb(55,56,149, maxColorValue = 255)
+        text(pw,id.predictor3$gR2[pw]+.02,labels=.sig(id.predictor3$pval[pw]),srt=90,col=colw,cex=2)
+        }
+    }
+dev.off()    
+    
+```
+
+
+&nbsp;
+
+## Table S2(B)
+
+Version of Table S2 for the full set.
+
+```{r message = FALSE, warning = FALSE, echo = TRUE}
+rownames(mx.pvalBonf.po) = id.predictor[is.na(match(id.predictor$id,id.outcome$cutoff[-ow])),"id"]
+colnames(mx.pvalBonf.po) = id.outcome$id
+as.data.frame(apply(mx.pvalBonf.po,2,.pval))
+```
+
+
+&nbsp;
+
+### Figure S3B
+
+As above for Figure S3A, we now perform a Monte-Carlo 5-fold cross-validation for the full set.
+
+
+```{r message = FALSE, warning = FALSE, echo = TRUE}
+#######################################################################
+# prepare:
+
+# net sample
+dataw     = id.section[!id.section$missing,]
+n.dataw   = nrow(dataw)
+dataw$pos = 1:n.dataw
+
+# randomly select one section per rodent
+fakew   = matrix(rnorm(1000*n.dataw),nrow=n.dataw)
+colnames(fakew) = .p("Random",1:1000)
+#
+dataw$centre = droplevels(dataw$centre)
+dataw$tumour = droplevels(dataw$tumour)
+dataw$rodent = factor(dataw$rodent)
+dataw$pos    = 1:n.dataw
+dataw        = cbind(dataw,fakew)
+# rescale pc_necrosis
+dataw$pc_necrosis = dataw$pc_necrosis/100
+
+# predictor2
+.idf(c(id.predictor$id,colnames(fakew)),"predictor2")
+
+# family
+n.family  = 1
+id.family = .nf(data.frame(pos=1:n.family,id=c("NO"),stringsAsFactors=FALSE))
+
+# models
+n.model  = n.family*n.predictor2*n.outcome
+id.model = .nf(data.frame(pos=1:n.model,id=1:n.model,
+                      outcome = rep(id.outcome$id,each=n.predictor2*n.family),
+                      family  = rep(rep(id.family$id,each=n.predictor2),n.outcome),
+                      predictor = rep(id.predictor2$id,n.family*n.outcome),
+                      gR2=NA,GAIC=NA))
+
+
+#######################################################################
+# fit:
+
+# fit
+if(is.na(match("figureS3B",dir(path.rdata)))){
+    source(paste0(path.r,"figureS3B.r"))
+}else{
+    load(.p(path.rdata,"figureS3B"))
+}
+
+#######################################################################
+# results:
+
+mx.crit.mc = apply(ar.crit.mkcb,c(1,3),mean)
+
+id.model   = cbind(id.model[,c("pos","id","outcome","family","predictor")],mx.crit.mc)
+
+    
+#######################################################################
+# plot: 
+
+pdf(.p(path.figures,"FS3B.pdf"),width=210/22,height=297/22/3.5)
+
+maxw = matrix(1:4,ncol=4,byrow=TRUE)
+layout(maxw,width=c(1/4,rep(1,3)),height=1)
+
+# rownames
+par(mar=c(7,0,0,1),oma=c(0,0,0,0))
+    .ep()
+    text(.5,.5,"Full group",srt=90,cex=2.5)
+
+
+par(mar=c(7,3,0,2))#,oma=c(0,4,0,1)) 
+mx.pvalBonf.po = NULL 
+for(ow in 1:n.outcome){# ow=1 
+
+    #
+    id.predictor3     = id.predictor[is.na(match(id.predictor$id,id.outcome$cutoff[-ow])),]
+    n.predictor3      = nrow(id.predictor3)
+    #
+    id.modelw = split(id.model,id.model$outcome)[[ow]]
+    orderw    = order(id.modelw$R2,decreasing=TRUE)
+    id.modelw = id.modelw[orderw,]
+    rownames(id.modelw) = id.modelw$predictor
+    id.predictor3$R2  = id.modelw[id.predictor3$id,"R2"]  
+    id.predictor3 = id.predictor3[order(id.predictor3$R2,decreasing=TRUE),]
+    #
+    ylimw = c(-.1,0.4)    
+    plot(1,1,pch="",xlim=c(1,n.predictor3)+c(-.5,.5),ylim=ylimw,
+         xlab = "",ylab="R-squared",
+         axes=FALSE,main="")
+    # random
+    colw = .p(.cruk$col[3],20)
+    gR2_random = id.modelw[grepl("Random",id.modelw$predictor),"R2"]
+    rect(0,min(ylimw),n.predictor3+1,quantile(gR2_random,prob=1),col=colw,border=NA)
+    rect(0,min(ylimw),n.predictor3+1,quantile(gR2_random,prob=.99),col=colw,border=NA)
+    rect(0,min(ylimw),n.predictor3+1,quantile(gR2_random,prob=.95),col=colw,border=NA)
+    rect(0,min(ylimw),n.predictor3+1,quantile(gR2_random,prob=.5),col=colw,border=NA)
+    axis(4,at=quantile(gR2_random,prob=c(1,.99,.95,.5)),
+         tick=FALSE,las=2,.p(c(100,99,95,50),"%"),
+         col.axis=.cruk$col[3],cex.axis=1,hadj=.5)
+    # axes
+    axis(1,c(1:n.predictor3),id.predictor3[,"name2"],cex.axis=1,las=2,pos=min(ylimw))
+    axis(1,at=n.predictor3/2,id.outcome$name[ow],tick=FALSE,padj=2.5,cex.axis=1.25,font=2)
+    axis(2,las=2,cex.axis=1)
+    axis(2,c(min(ylimw),max(ylimw)),tick=TRUE,labels=c("",""),lwd.ticks=NA)
+    axis(1,c(-1000,1e+6),pos=min(ylimw))
+    if(ow==1){axis(2,at=mean(ylimw),"R-squared",tick=FALSE,padj=-2.5,cex.axis=1.25)}    
+    abline(h=seq(0.05,0.5,0.05),col=gray(.9))
+    
+    # 
+    lines(id.predictor3$R2,col=.cruk$col[1])
+    points(id.predictor3$R2,col=.cruk$col[1])
+    }
+dev.off()    
+    
+```
+
+
+

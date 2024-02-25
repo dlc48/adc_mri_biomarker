@@ -1,0 +1,26 @@
+"","pos","id","name","name2","name3"
+"1",1,"adc.mean","ADC
+Mean","Mean","Mean"
+"2",2,"adc.median","ADC
+Median","Median","Median"
+"3",3,"adc.sd","ADC
+Standard
+Deviation","St.dev.","StDev."
+"4",4,"adc.skewness","ADC
+Skewness","Skewness","Skew."
+"5",5,"adc.kurtosis","ADC
+Kurtosis","Kurtosis","Kurt."
+"6",6,"adc.cutoffN","ADC
+Cut-Off N","Cut-off","Cut-off N"
+"7",7,"adc.cutoffCT","ADC
+Cut-Off CT","Cut-off","Cut-off CT"
+"8",8,"adc.cutoffCV","ADC
+Cut-Off CV","Cut-off","Cut-off CV"
+"9",9,"SHASH.mu","ADC SHASH
+Mu","Mu","Mu"
+"10",10,"SHASH.sigma","ADC SHASH
+Sigma","Sigma","Sigma"
+"11",11,"SHASH.nu","ADC SHASH
+Nu","Nu","Nu"
+"12",12,"SHASH.tau","ADC SHASH
+Tau","Tau","Tau"

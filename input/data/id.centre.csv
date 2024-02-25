@@ -1,0 +1,9 @@
+"","pos","id","name","training.set","test.set","pch","cex","order"
+"AZ",1,"AZ","AstraZeneca",TRUE,FALSE,17,1,1
+"AZTx",2,"AZTx","AstraZeneca (Treated)",FALSE,TRUE,24,1,2
+"Cam",3,"Cam","Cambridge",TRUE,FALSE,16,1.25,3
+"INSERM",4,"INSERM","Paris",TRUE,FALSE,18,1.25,5
+"Man",5,"Man","Manchester",TRUE,FALSE,15,1,6
+"ManTx",6,"ManTx","Manchester (Treated)",FALSE,TRUE,22,1,8
+"RunMC",7,"RunMC","Nijmegen",TRUE,FALSE,18,1.25,7
+"WWU",8,"WWU","Muenster",TRUE,FALSE,8,1.15,4

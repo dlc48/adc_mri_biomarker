@@ -1,0 +1,7 @@
+"","pos","id","name","cutoff"
+"1",1,"pc_necrosis","%
+Necrosis","adc.cutoffN"
+"2",2,"total_cellularity","Cellularity:
+Total area","adc.cutoffCT"
+"3",3,"total_cellularity2","Cellularity:
+Viable area","adc.cutoffCV"
