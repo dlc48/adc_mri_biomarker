@@ -29,7 +29,7 @@ rm(list=ls())
 
 # 
 if(exists(".id")){
-    setwd(.p(.cruk$path,"5412/rmd/2-shared/"))
+    setwd(.p(.cruk$path,"5412/rmd/2-git/"))
 }
 
 
