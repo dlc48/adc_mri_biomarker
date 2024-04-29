@@ -65,6 +65,36 @@
         main = "", ylim = ylim, xlim = xlim)
 }
 
+.nf = function(file){
+    temp = file
+    vect.colw = seq(1, dim(temp)[2])[sapply(temp, class) == "factor"]
+    if (length(vect.colw) > 0) {
+        for (colw in 1:length(vect.colw)) {
+            temp[, vect.colw[colw]] = as.character(temp[, vect.colw[colw]])
+        }
+    }
+    temp
+}
+
+.sig = function (pval){
+    out = rep("", length(pval))
+    out[pval <= 0.1 & !is.na(pval)] = "."
+    out[pval <= 0.05 & !is.na(pval)] = "*"
+    out[pval <= 0.01 & !is.na(pval)] = "**"
+    out[pval <= 0.001 & !is.na(pval)] = "***"
+    out
+}
+
+ .pval = function (pval, digit = 4){
+    out = format(c(.an(.p("0.", .p(rep(1, digit), collapse = ""))),
+        round(pval, digits = digit)))[-1]
+    out[is.na(pval)] = ""
+    out[!is.na(match(out, c("0.00000", "0.0000", "0.000", "0.00",
+        "0.0", "0")))] = .p("<0.", .p(rep(0, digit - 1), collapse = ""),
+        "1")
+    out
+}
+
 .idf=function (input, name = NULL)
 {
     w1 = ifelse(class(input) == "table", length(unique(names(input))) !=

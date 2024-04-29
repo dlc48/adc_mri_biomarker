@@ -18,7 +18,7 @@ output:
     
 ---
 
-<!--- rmarkdown::render(.p(.cruk$path,"5412/rmd/IMI.Rmd")) --->
+<!--- rmarkdown::render(paste0("~/cruk/redmine/5412/rmd/2-git/Run.Rmd")) --->
 <!--- setwd(.p(.cruk$path,"5412/rmd/")) --->
 
 <img src="input/html/logo.png" style="position:absolute;top:0px;right:0px;" width="300" />
@@ -28,11 +28,12 @@ output:
 rm(list=ls())
 
 # 
-if(exists(".id")){
-    setwd(.p(.cruk$path,"5412/rmd/2-git/"))
-}
+#if(exists(".id")){
+    #setwd(paste0(.cruk$path,"5412/rmd/2-git/"))
+#}
 
-
+# colours
+.cruk = list(col = c("#EC008C","#00B6ED","#2E008B","#F0B200" ))
 
 
 # paths
