@@ -1,15 +1,15 @@
 ###############################################################################
 Source code and data for the manuscript "MRI biomarker ADC better predicts 
 	tumor cellularity than necrosis in a multi-center multi-vendor study 
-	of eleven rodent tumor models”, by Honess et al (2024)
+	of eleven rodent tumor models”, by Honess et al (2025)
 ###############################################################################
 
 For questions, comments or remarks about the code please contact  
 - Davina Honess (Davina.Honess@cruk.cam.ac.uk)
 - Dominique-Laurent Couturier (dlc48@cam.ac.uk)
 
-The code has been written using R version 4.3.0 (platform: aarch64-apple-darwin20, 
-64-bit) with package gamlss_5.4-20
+The code has been written using R version 4.5.1 (platform: aarch64-apple-darwin20, 
+64-bit) with package gamlss_5.4-22
 
 
 File organisation:

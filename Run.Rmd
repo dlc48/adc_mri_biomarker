@@ -19,7 +19,7 @@ output:
 ---
 
 <!--- rmarkdown::render(paste0("~/cruk/redmine/5412/rmd/2-git/Run.Rmd")) --->
-<!--- setwd(.p(.cruk$path,"5412/rmd/")) --->
+<!--- setwd(.p(.cruk$path,"5412/rmd/2-git/")) --->
 
 <img src="input/html/logo.png" style="position:absolute;top:0px;right:0px;" width="300" />
 
@@ -33,7 +33,7 @@ rm(list=ls())
 #}
 
 # colours
-.cruk = list(col = c("#EC008C","#00B6ED","#2E008B","#F0B200" ))
+.cruk = list(col = c("#EC008C","#00B6ED","#2E008B","#F0B200","#A7A8AA","#3C3C3C"))
 
 
 # paths
@@ -197,52 +197,7 @@ tb
 
 ```{r message = FALSE, warning = FALSE, echo = TRUE, fig.height = 7, fig.width = 12, fig.align = "center"}
 # select data
-dataw = id.section[id.section$training.set&
-                   !apply(is.na(id.section[,id.outcome$id[1:2]]),1,any),]
-
-pdf(.p(path.figures,"F2.pdf"),width=9,height=4)
-layout(matrix(1:3,ncol=3),width=c(1,1,1/2),height=1)
-par(mar=c(3,3,.1,.25),oma=c(3,3,0,0)) 
-#par(mfrow=c(1,2),bg="white",mar=c(2.1,4,1,0),oma=c(4,5.5,2,1)) 
-xlimw = range(c(dataw$total_cellularity,dataw$total_cellularity2),na.rm=TRUE)
-#
-plot(dataw$total_cellularity,dataw$pc_necrosis,
-     xlim=xlimw,
-     col=id.tumour$col[.an(dataw$tumour)],
-     pch=id.centre$pch[.an(dataw$centre)],
-     cex=id.centre$cex[.an(dataw$centre)],
-     axes=FALSE,xlab="",ylab="",main=""
-     )
-axis(2,las=2)
-axis(2,at=43,"% Necrosis",tick=FALSE,padj=-3.5,cex.axis=1.5)
-    #axis(2,at=43,"%",tick=FALSE,las=2,hadj=5,cex.axis=1.5)
-    #axis(2,at=37,"Necrosis",tick=FALSE,las=2,hadj=1.5,cex.axis=1.5)
-axis(1)
-axis(1,at=mean(xlimw),expression(paste("Cellularity: Total area (Cells/",mm^2,")")),tick=FALSE,padj=2.5,cex.axis=1.5)
-box()
-#
-plot(dataw$total_cellularity2,dataw$pc_necrosis,
-     xlim=xlimw,
-     col=id.tumour$col[.an(dataw$tumour)],
-     pch=id.centre$pch[.an(dataw$centre)],
-     cex=id.centre$cex[.an(dataw$centre)],
-     axes=FALSE,xlab="",ylab="",main=""
-     )
-axis(2,las=2)
-axis(1)
-axis(1,at=mean(xlimw),expression(paste("Cellularity: Viable area (Cells/",mm^2,")")),tick=FALSE,padj=2.5,cex.axis=1.5)
-box()    
-# legend
-.ep()
-legend("top",col=id.tumour$col,
-       ncol=1,legend=id.tumour$name,lty=1,lwd=4,box.lwd=NA,
-       title.col="black",title="Tumour types:",cex=1)
-posw = id.centre$training.set[id.centre$order]       
-legend("bottom",pch=id.centre$pch[id.centre$order][posw],
-       pt.cex=id.centre$cex[id.centre$order][posw],cex=1,
-       ncol=1,legend=id.centre$name[id.centre$order][posw],box.lwd=NA,
-       title.col="black",title="Centres:")
-dev.off()
+ 
 ```
 
 
@@ -289,7 +244,7 @@ dev.off()
 
 ```{r message = FALSE, warning = FALSE, echo = TRUE, fig.height = 7, fig.width = 12, fig.align = "center"}
     
-pdf(.p(path.figures,"F3.pdf"),width=210/22,height=297/22)
+pdf(.p(path.figures,"F3.pdf"),width=210/18,height=297/18)
 maxw = rbind(cbind(rep(1:n.outcome,each=2),matrix(4:33,ncol=5,byrow=TRUE)),34)
 layout(maxw,width=c(1/4,rep(1,5)),height=rep(c(1,.6),c(6,1)))
 
@@ -428,19 +383,18 @@ mx.pvalBH.op2 = t(apply(mx.pval.op2,1,p.adjust,method="BH"))
 #######################################################################
 # plot
 
-
 pdf(.p(path.figures,"F4A.pdf"),width=210/22,height=297/22/3.5)
 
 maxw = matrix(1:4,ncol=4,byrow=TRUE)
 layout(maxw,width=c(1/4,rep(1,3)),height=1)
 
 # rownames
-par(mar=c(7,0,0,1),oma=c(0,0,0,0))
+par(mar=c(8,0,0,1),oma=c(0,0,0,0))
     .ep()
     text(.5,.5,"Untreated group",srt=90,cex=2.5)
 
 
-par(mar=c(7,3,0,2))#,oma=c(0,4,0,1)) 
+par(mar=c(8,3,0,2.5))#,oma=c(0,4,0,1)) 
 mx.pvalBonf.po = NULL 
 for(ow in 1:n.outcome){# ow=1 
 
@@ -457,40 +411,48 @@ for(ow in 1:n.outcome){# ow=1
     id.predictor3$pval = p.adjust(id.modelw[id.predictor3$id,"LRT"],method="bonferroni") 
     mx.pvalBonf.po = cbind(mx.pvalBonf.po,id.predictor3$pval)
     id.predictor3 = id.predictor3[order(id.predictor3$gR2,decreasing=TRUE),]
+    id.predictor3$col = .cruk$col[3]
+    id.predictor3$col[grepl("mu",id.predictor3$id)|
+                      grepl("mean",id.predictor3$id)|
+                      grepl("median",id.predictor3$id)] = .cruk$col[1]
     #
+    xposw = barplot(id.predictor3$gR2,plot=FALSE)
+    xlimw = range(xposw)+c(-.75,.75)
     ylimw = c(0,0.4)    
-    plot(1,1,pch="",xlim=c(1,n.predictor3)+c(-.5,.5),ylim=ylimw,
+    plot(1,1,pch="",xlim=xlimw,ylim=ylimw,
          xlab = "",ylab="R-squared",
          axes=FALSE,main="")
+    barplot(id.predictor3$gR2,add=TRUE,col=id.predictor3$col,axes=FALSE)
     # random
-    colw = .p(.cruk$col[3],20)
+    colw = 1#.p(.cruk$col[3],20)
     gR2_random = id.modelw[grepl("Random",id.modelw$predictor),"gR2"]
-    rect(0,0,n.predictor3+1,quantile(gR2_random,prob=1),col=colw,border=NA)
-    rect(0,0,n.predictor3+1,quantile(gR2_random,prob=.99),col=colw,border=NA)
-    rect(0,0,n.predictor3+1,quantile(gR2_random,prob=.95),col=colw,border=NA)
-    rect(0,0,n.predictor3+1,quantile(gR2_random,prob=.5),col=colw,border=NA)
+    colw = gray(.5)
+    segments(xlimw[1],quantile(gR2_random,prob=1),xlimw[2],quantile(gR2_random,prob=1),col=colw, lty=2)
+    segments(xlimw[1],quantile(gR2_random,prob=.99),xlimw[2],quantile(gR2_random,prob=.99),col=colw, lty=2)
+    segments(xlimw[1],quantile(gR2_random,prob=.95),xlimw[2],quantile(gR2_random,prob=.95),col=colw, lty=2)
+    segments(xlimw[1],quantile(gR2_random,prob=.5),xlimw[2],quantile(gR2_random,prob=.5),col=colw, lty=2)
     axis(4,at=quantile(gR2_random,prob=c(1,.99,.95,.5)),
          tick=FALSE,las=2,.p(c(100,99,95,50),"%"),
-         col.axis=.cruk$col[3],cex.axis=1,hadj=.5)
+         col.axis=1,cex.axis=1,hadj=.5)
     # axes
-    axis(1,c(1:n.predictor3),id.predictor3[,"name2"],cex.axis=1,las=2,pos=0)
-    axis(1,at=n.predictor3/2,id.outcome$name[ow],tick=FALSE,padj=2.5,cex.axis=1.25,font=2)
+    axis(1,xposw,id.predictor3[,"name2"],cex.axis=1.4,las=2,pos=0)
+    axis(1,at=xlimw[2]/2,gsub("\n"," ",id.outcome$name[ow]),
+         tick=FALSE,padj=4.5,cex.axis=2,font=2)
     axis(2,las=2,cex.axis=1)
     axis(2,c(min(ylimw),max(ylimw)),tick=TRUE,labels=c("",""),lwd.ticks=NA)
-    axis(1,c(-1000,1e+6),pos=min(ylimw))
-    if(ow==1){axis(2,at=0.2,"R-squared",tick=FALSE,padj=-2.5,cex.axis=1.25)}    
-    abline(h=seq(0.15,0.5,0.05),col=gray(.9))
-    
-    # 
-    lines(id.predictor3$gR2,col=.cruk$col[1])
-    points(id.predictor3$gR2,col=.cruk$col[1])
+    #axis(1,c(-1000,1e+6),pos=min(ylimw))
+    if(ow==1){axis(2,at=mean(ylimw),"R-squared",tick=FALSE,padj=-2.5,cex.axis=1.25)}    
+    #abline(h=seq(0.15,0.5,0.05),col=gray(.9))
+    #lines(id.predictor3$gR2,col=.cruk$col[1])
+    #points(id.predictor3$gR2,col=.cruk$col[1])
     #
     for(pw in 1:n.predictor){
-        colw = rgb(55,56,149, maxColorValue = 255)
-        text(pw,id.predictor3$gR2[pw]+.02,labels=.sig(id.predictor3$pval[pw]),srt=90,col=colw,cex=2)
+        #colw = rgb(55,56,149, maxColorValue = 255)
+        text(xposw[pw],id.predictor3$gR2[pw]+0.025,labels=.sig(id.predictor3$pval[pw]),
+             srt=90,col=id.predictor3$col[pw],cex=2)
         }
     }
-dev.off()    
+dev.off()   
 ```
 
 &nbsp;
@@ -572,7 +534,7 @@ id.model   = cbind(id.model[,c("pos","id","outcome","family","predictor")],mx.cr
 
     
 #######################################################################
-# plot: 
+# plot
 
 pdf(.p(path.figures,"FS3A.pdf"),width=210/22,height=297/22/3.5)
 
@@ -580,12 +542,12 @@ maxw = matrix(1:4,ncol=4,byrow=TRUE)
 layout(maxw,width=c(1/4,rep(1,3)),height=1)
 
 # rownames
-par(mar=c(7,0,0,1),oma=c(0,0,0,0))
+par(mar=c(8,0,0,1),oma=c(0,0,0,0))
     .ep()
     text(.5,.5,"Untreated group",srt=90,cex=2.5)
 
 
-par(mar=c(7,3,0,2))#,oma=c(0,4,0,1)) 
+par(mar=c(8,3,0,2.5))#,oma=c(0,4,0,1)) 
 mx.pvalBonf.po = NULL 
 for(ow in 1:n.outcome){# ow=1 
 
@@ -599,36 +561,44 @@ for(ow in 1:n.outcome){# ow=1
     rownames(id.modelw) = id.modelw$predictor
     id.predictor3$R2  = id.modelw[id.predictor3$id,"R2"]  
     id.predictor3 = id.predictor3[order(id.predictor3$R2,decreasing=TRUE),]
+    id.predictor3$col = .cruk$col[3]
+    id.predictor3$col[grepl("mu",id.predictor3$id)|
+                      grepl("mean",id.predictor3$id)|
+                      grepl("median",id.predictor3$id)] = .cruk$col[1]    
     #
-    ylimw = c(-.1,0.4)    
-    plot(1,1,pch="",xlim=c(1,n.predictor3)+c(-.5,.5),ylim=ylimw,
+    xposw = barplot(id.predictor3$R2,plot=FALSE)
+    xlimw = range(xposw)+c(-.75,.75)
+    ylimw = c(-0.1,0.4)    
+    plot(1,1,pch="",xlim=xlimw,ylim=ylimw,
          xlab = "",ylab="R-squared",
          axes=FALSE,main="")
+    barplot(id.predictor3$R2,add=TRUE,col=id.predictor3$col,axes=FALSE)
+    abline(h=0,col=1,lwd=2)    
     # random
-    colw = .p(.cruk$col[3],20)
+    colw = 1#.p(.cruk$col[3],20)
     gR2_random = id.modelw[grepl("Random",id.modelw$predictor),"R2"]
-    rect(0,min(ylimw),n.predictor3+1,quantile(gR2_random,prob=1),col=colw,border=NA)
-    rect(0,min(ylimw),n.predictor3+1,quantile(gR2_random,prob=.99),col=colw,border=NA)
-    rect(0,min(ylimw),n.predictor3+1,quantile(gR2_random,prob=.95),col=colw,border=NA)
-    rect(0,min(ylimw),n.predictor3+1,quantile(gR2_random,prob=.5),col=colw,border=NA)
+    colw = gray(.5)
+    segments(xlimw[1],quantile(gR2_random,prob=1),xlimw[2],quantile(gR2_random,prob=1),col=colw, lty=2)
+    segments(xlimw[1],quantile(gR2_random,prob=.99),xlimw[2],quantile(gR2_random,prob=.99),col=colw, lty=2)
+    segments(xlimw[1],quantile(gR2_random,prob=.95),xlimw[2],quantile(gR2_random,prob=.95),col=colw, lty=2)
+    segments(xlimw[1],quantile(gR2_random,prob=.5),xlimw[2],quantile(gR2_random,prob=.5),col=colw, lty=2)
     axis(4,at=quantile(gR2_random,prob=c(1,.99,.95,.5)),
          tick=FALSE,las=2,.p(c(100,99,95,50),"%"),
-         col.axis=.cruk$col[3],cex.axis=1,hadj=.5)
+         col.axis=1,cex.axis=1,hadj=.5)
     # axes
-    axis(1,c(1:n.predictor3),id.predictor3[,"name2"],cex.axis=1,las=2,pos=min(ylimw))
-    axis(1,at=n.predictor3/2,id.outcome$name[ow],tick=FALSE,padj=2.5,cex.axis=1.25,font=2)
+    axis(1,xposw,id.predictor3[,"name2"],cex.axis=1.4,las=2,pos=-0.1)
+    axis(1,at=xlimw[2]/2,gsub("\n"," ",id.outcome$name[ow]),
+         tick=FALSE,padj=4.5,cex.axis=2,font=2)
     axis(2,las=2,cex.axis=1)
     axis(2,c(min(ylimw),max(ylimw)),tick=TRUE,labels=c("",""),lwd.ticks=NA)
-    axis(1,c(-1000,1e+6),pos=min(ylimw))
+    #axis(1,c(-1000,1e+6),pos=min(ylimw))
     if(ow==1){axis(2,at=mean(ylimw),"R-squared",tick=FALSE,padj=-2.5,cex.axis=1.25)}    
-    abline(h=seq(0.05,0.5,0.05),col=gray(.9))
-    
-    # 
-    lines(id.predictor3$R2,col=.cruk$col[1])
-    points(id.predictor3$R2,col=.cruk$col[1])
+    #abline(h=0,col=gray(.9))
+    #lines(id.predictor3$gR2,col=.cruk$col[1])
+    #points(id.predictor3$gR2,col=.cruk$col[1])
     }
 dev.off()    
-    
+
 ```
 
 &nbsp;
@@ -838,12 +808,12 @@ maxw = matrix(1:4,ncol=4,byrow=TRUE)
 layout(maxw,width=c(1/4,rep(1,3)),height=1)
 
 # rownames
-par(mar=c(7,0,0,1),oma=c(0,0,0,0))
+par(mar=c(8,0,0,1),oma=c(0,0,0,0))
     .ep()
     text(.5,.5,"Full group",srt=90,cex=2.5)
 
 
-par(mar=c(7,3,0,2))#,oma=c(0,4,0,1)) 
+par(mar=c(8,3,0,2.5))#,oma=c(0,4,0,1)) 
 mx.pvalBonf.po = NULL 
 for(ow in 1:n.outcome){# ow=1 
 
@@ -860,41 +830,50 @@ for(ow in 1:n.outcome){# ow=1
     id.predictor3$pval = p.adjust(id.modelw[id.predictor3$id,"LRT"],method="bonferroni") 
     mx.pvalBonf.po = cbind(mx.pvalBonf.po,id.predictor3$pval)
     id.predictor3 = id.predictor3[order(id.predictor3$gR2,decreasing=TRUE),]
+    id.predictor3$col = .cruk$col[3]
+    id.predictor3$col[grepl("mu",id.predictor3$id)|
+                      grepl("mean",id.predictor3$id)|
+                      grepl("median",id.predictor3$id)] = .cruk$col[1]    
     #
+    xposw = barplot(id.predictor3$gR2,plot=FALSE)
+    xlimw = range(xposw)+c(-.75,.75)
     ylimw = c(0,0.4)    
-    plot(1,1,pch="",xlim=c(1,n.predictor3)+c(-.5,.5),ylim=ylimw,
+    plot(1,1,pch="",xlim=xlimw,ylim=ylimw,
          xlab = "",ylab="R-squared",
          axes=FALSE,main="")
+    barplot(id.predictor3$gR2,add=TRUE,col=id.predictor3$col,axes=FALSE)
     # random
-    colw = .p(.cruk$col[3],20)
+    colw = 1#.p(.cruk$col[3],20)
     gR2_random = id.modelw[grepl("Random",id.modelw$predictor),"gR2"]
-    rect(0,0,n.predictor3+1,quantile(gR2_random,prob=1),col=colw,border=NA)
-    rect(0,0,n.predictor3+1,quantile(gR2_random,prob=.99),col=colw,border=NA)
-    rect(0,0,n.predictor3+1,quantile(gR2_random,prob=.95),col=colw,border=NA)
-    rect(0,0,n.predictor3+1,quantile(gR2_random,prob=.5),col=colw,border=NA)
+    colw = gray(.5)
+    segments(xlimw[1],quantile(gR2_random,prob=1),xlimw[2],quantile(gR2_random,prob=1),col=colw, lty=2)
+    segments(xlimw[1],quantile(gR2_random,prob=.99),xlimw[2],quantile(gR2_random,prob=.99),col=colw, lty=2)
+    segments(xlimw[1],quantile(gR2_random,prob=.95),xlimw[2],quantile(gR2_random,prob=.95),col=colw, lty=2)
+    segments(xlimw[1],quantile(gR2_random,prob=.5),xlimw[2],quantile(gR2_random,prob=.5),col=colw, lty=2)
     axis(4,at=quantile(gR2_random,prob=c(1,.99,.95,.5)),
          tick=FALSE,las=2,.p(c(100,99,95,50),"%"),
-         col.axis=.cruk$col[3],cex.axis=1,hadj=.5)
+         col.axis=1,cex.axis=1,hadj=.5)
     # axes
-    axis(1,c(1:n.predictor3),id.predictor3[,"name2"],cex.axis=1,las=2,pos=0)
-    axis(1,at=n.predictor3/2,id.outcome$name[ow],tick=FALSE,padj=2.5,cex.axis=1.25,font=2)
+    axis(1,xposw,id.predictor3[,"name2"],cex.axis=1.4,las=2,pos=0)
+    axis(1,at=xlimw[2]/2,gsub("\n"," ",id.outcome$name[ow]),
+         tick=FALSE,padj=4.5,cex.axis=2,font=2)
     axis(2,las=2,cex.axis=1)
     axis(2,c(min(ylimw),max(ylimw)),tick=TRUE,labels=c("",""),lwd.ticks=NA)
-    axis(1,c(-1000,1e+6),pos=min(ylimw))
-    if(ow==1){axis(2,at=0.2,"R-squared",tick=FALSE,padj=-2.5,cex.axis=1.25)}    
-    abline(h=seq(0.15,0.5,0.05),col=gray(.9))
-    
-    # 
-    lines(id.predictor3$gR2,col=.cruk$col[1])
-    points(id.predictor3$gR2,col=.cruk$col[1])
+    #axis(1,c(-1000,1e+6),pos=min(ylimw))
+    if(ow==1){axis(2,at=mean(ylimw),"R-squared",tick=FALSE,padj=-2.5,cex.axis=1.25)}    
+    #abline(h=seq(0.15,0.5,0.05),col=gray(.9))
+    #lines(id.predictor3$gR2,col=.cruk$col[1])
+    #points(id.predictor3$gR2,col=.cruk$col[1])
     #
     for(pw in 1:n.predictor){
-        colw = rgb(55,56,149, maxColorValue = 255)
-        text(pw,id.predictor3$gR2[pw]+.02,labels=.sig(id.predictor3$pval[pw]),srt=90,col=colw,cex=2)
+        #colw = rgb(55,56,149, maxColorValue = 255)
+        text(xposw[pw],id.predictor3$gR2[pw]+0.025,labels=.sig(id.predictor3$pval[pw]),
+             srt=90,col=id.predictor3$col[pw],cex=2)
         }
     }
 dev.off()    
-    
+
+        
 ```
 
 
@@ -974,7 +953,7 @@ id.model   = cbind(id.model[,c("pos","id","outcome","family","predictor")],mx.cr
 
     
 #######################################################################
-# plot: 
+# plot
 
 pdf(.p(path.figures,"FS3B.pdf"),width=210/22,height=297/22/3.5)
 
@@ -982,12 +961,12 @@ maxw = matrix(1:4,ncol=4,byrow=TRUE)
 layout(maxw,width=c(1/4,rep(1,3)),height=1)
 
 # rownames
-par(mar=c(7,0,0,1),oma=c(0,0,0,0))
+par(mar=c(8,0,0,1),oma=c(0,0,0,0))
     .ep()
     text(.5,.5,"Full group",srt=90,cex=2.5)
 
 
-par(mar=c(7,3,0,2))#,oma=c(0,4,0,1)) 
+par(mar=c(8,3,0,2.5))#,oma=c(0,4,0,1)) 
 mx.pvalBonf.po = NULL 
 for(ow in 1:n.outcome){# ow=1 
 
@@ -1001,33 +980,41 @@ for(ow in 1:n.outcome){# ow=1
     rownames(id.modelw) = id.modelw$predictor
     id.predictor3$R2  = id.modelw[id.predictor3$id,"R2"]  
     id.predictor3 = id.predictor3[order(id.predictor3$R2,decreasing=TRUE),]
+    id.predictor3$col = .cruk$col[3]
+    id.predictor3$col[grepl("mu",id.predictor3$id)|
+                      grepl("mean",id.predictor3$id)|
+                      grepl("median",id.predictor3$id)] = .cruk$col[1]    
     #
-    ylimw = c(-.1,0.4)    
-    plot(1,1,pch="",xlim=c(1,n.predictor3)+c(-.5,.5),ylim=ylimw,
+    xposw = barplot(id.predictor3$R2,plot=FALSE)
+    xlimw = range(xposw)+c(-.75,.75)
+    ylimw = c(-0.1,0.4)    
+    plot(1,1,pch="",xlim=xlimw,ylim=ylimw,
          xlab = "",ylab="R-squared",
          axes=FALSE,main="")
+    barplot(id.predictor3$R2,add=TRUE,col=id.predictor3$col,axes=FALSE)
+    abline(h=0,col=1,lwd=2)    
     # random
-    colw = .p(.cruk$col[3],20)
+    colw = 1#.p(.cruk$col[3],20)
     gR2_random = id.modelw[grepl("Random",id.modelw$predictor),"R2"]
-    rect(0,min(ylimw),n.predictor3+1,quantile(gR2_random,prob=1),col=colw,border=NA)
-    rect(0,min(ylimw),n.predictor3+1,quantile(gR2_random,prob=.99),col=colw,border=NA)
-    rect(0,min(ylimw),n.predictor3+1,quantile(gR2_random,prob=.95),col=colw,border=NA)
-    rect(0,min(ylimw),n.predictor3+1,quantile(gR2_random,prob=.5),col=colw,border=NA)
+    colw = gray(.5)
+    segments(xlimw[1],quantile(gR2_random,prob=1),xlimw[2],quantile(gR2_random,prob=1),col=colw, lty=2)
+    segments(xlimw[1],quantile(gR2_random,prob=.99),xlimw[2],quantile(gR2_random,prob=.99),col=colw, lty=2)
+    segments(xlimw[1],quantile(gR2_random,prob=.95),xlimw[2],quantile(gR2_random,prob=.95),col=colw, lty=2)
+    segments(xlimw[1],quantile(gR2_random,prob=.5),xlimw[2],quantile(gR2_random,prob=.5),col=colw, lty=2)
     axis(4,at=quantile(gR2_random,prob=c(1,.99,.95,.5)),
          tick=FALSE,las=2,.p(c(100,99,95,50),"%"),
-         col.axis=.cruk$col[3],cex.axis=1,hadj=.5)
+         col.axis=1,cex.axis=1,hadj=.5)
     # axes
-    axis(1,c(1:n.predictor3),id.predictor3[,"name2"],cex.axis=1,las=2,pos=min(ylimw))
-    axis(1,at=n.predictor3/2,id.outcome$name[ow],tick=FALSE,padj=2.5,cex.axis=1.25,font=2)
+    axis(1,xposw,id.predictor3[,"name2"],cex.axis=1.4,las=2,pos=-0.1)
+    axis(1,at=xlimw[2]/2,gsub("\n"," ",id.outcome$name[ow]),
+         tick=FALSE,padj=4.5,cex.axis=2,font=2)
     axis(2,las=2,cex.axis=1)
     axis(2,c(min(ylimw),max(ylimw)),tick=TRUE,labels=c("",""),lwd.ticks=NA)
-    axis(1,c(-1000,1e+6),pos=min(ylimw))
+    #axis(1,c(-1000,1e+6),pos=min(ylimw))
     if(ow==1){axis(2,at=mean(ylimw),"R-squared",tick=FALSE,padj=-2.5,cex.axis=1.25)}    
-    abline(h=seq(0.05,0.5,0.05),col=gray(.9))
-    
-    # 
-    lines(id.predictor3$R2,col=.cruk$col[1])
-    points(id.predictor3$R2,col=.cruk$col[1])
+    #abline(h=0,col=gray(.9))
+    #lines(id.predictor3$gR2,col=.cruk$col[1])
+    #points(id.predictor3$gR2,col=.cruk$col[1])
     }
 dev.off()    
     
